@@ -4,9 +4,12 @@ import { ChatMessage } from './components/ChatMessage'
 import { SourceUploader } from './components/SourceUploader'
 import { StatusBar } from './components/StatusBar'
 import { StatsDashboard } from './components/StatsDashboard'
+import { AuthPage } from './pages/AuthPage'
 import { useChat } from './hooks/useChat'
+import { useAuth } from './hooks/useAuth.jsx'
 
 export default function App() {
+  const { user, logout } = useAuth()
   const { messages, streaming, sendMessage, abort, clearChat, sessionId } = useChat()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [statsOpen, setStatsOpen] = useState(false)
@@ -16,6 +19,9 @@ export default function App() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Show auth page if not logged in
+  if (!user) return <AuthPage />
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -42,41 +48,31 @@ export default function App() {
             fontSize: 10, padding: '2px 8px', borderRadius: 20,
             background: 'rgba(61,214,140,0.12)', color: 'var(--green)',
             fontWeight: 500, letterSpacing: '0.05em',
-          }}>PHASE 5</span>
-          <span style={{
-            fontSize: 10, color: 'var(--text-dim)',
-            fontFamily: 'var(--font-mono)',
-          }}>
-            {sessionId.slice(0, 16)}
-          </span>
+          }}>PHASE 6</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Clear chat */}
-          <button
-            onClick={clearChat}
-            disabled={streaming}
-            style={{
-              fontSize: 12, color: 'var(--text-muted)',
-              background: 'none', border: '1px solid var(--border)',
-              borderRadius: 8, padding: '4px 10px', fontFamily: 'inherit',
-              opacity: streaming ? 0.4 : 1,
-            }}
-          >
+          {/* User email */}
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            {user.email}
+          </span>
+
+          <button onClick={clearChat} disabled={streaming} style={{
+            fontSize: 12, color: 'var(--text-muted)', background: 'none',
+            border: '1px solid var(--border)', borderRadius: 8,
+            padding: '4px 10px', fontFamily: 'inherit',
+            opacity: streaming ? 0.4 : 1,
+          }}>
             Clear chat
           </button>
 
-          {/* Stats toggle */}
-          <button
-            onClick={() => setStatsOpen(o => !o)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 12, color: statsOpen ? 'var(--accent-bright)' : 'var(--text-muted)',
-              background: statsOpen ? 'rgba(124,106,247,0.1)' : 'none',
-              border: `1px solid ${statsOpen ? 'rgba(124,106,247,0.3)' : 'var(--border)'}`,
-              borderRadius: 8, padding: '4px 10px', fontFamily: 'inherit',
-            }}
-          >
+          <button onClick={() => setStatsOpen(o => !o)} style={{
+            display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,
+            color: statsOpen ? 'var(--accent-bright)' : 'var(--text-muted)',
+            background: statsOpen ? 'rgba(124,106,247,0.1)' : 'none',
+            border: `1px solid ${statsOpen ? 'rgba(124,106,247,0.3)' : 'var(--border)'}`,
+            borderRadius: 8, padding: '4px 10px', fontFamily: 'inherit',
+          }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="18" y1="20" x2="18" y2="10"/>
               <line x1="12" y1="20" x2="12" y2="4"/>
@@ -84,14 +80,21 @@ export default function App() {
             </svg>
             MLflow
           </button>
+
+          <button onClick={logout} style={{
+            fontSize: 12, color: 'var(--red)', background: 'none',
+            border: '1px solid rgba(242,107,107,0.25)',
+            borderRadius: 8, padding: '4px 10px', fontFamily: 'inherit',
+          }}>
+            Sign out
+          </button>
+
           <StatusBar />
         </div>
       </header>
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-
-        {/* Sidebar */}
         {sidebarOpen && (
           <aside style={{
             width: 280, borderRight: '1px solid var(--border)',
@@ -112,7 +115,6 @@ export default function App() {
           </aside>
         )}
 
-        {/* Chat */}
         <main style={{
           flex: 1, display: 'flex', flexDirection: 'column',
           overflow: 'hidden', background: 'var(--bg2)',
@@ -139,9 +141,7 @@ export default function App() {
                   fontSize: 12, color: 'var(--text-muted)',
                   background: 'var(--bg3)', border: '1px solid var(--border)',
                   borderRadius: 8, padding: '4px 12px', fontFamily: 'inherit',
-                }}>
-                  Stop generating
-                </button>
+                }}>Stop generating</button>
               </div>
             )}
             <ChatInput onSubmit={sendMessage} disabled={streaming} />
@@ -151,7 +151,6 @@ export default function App() {
           </div>
         </main>
 
-        {/* Stats panel */}
         {statsOpen && <StatsDashboard onClose={() => setStatsOpen(false)} />}
       </div>
 

@@ -6,6 +6,11 @@ function generateSessionId() {
   return 'session_' + Math.random().toString(36).slice(2, 11)
 }
 
+function getToken() {
+  const stored = localStorage.getItem('auth')
+  return stored ? JSON.parse(stored).token : null
+}
+
 export function useChat() {
   const [messages, setMessages] = useState([
     { role: 'agent', content: 'Hello! Upload some sources on the left, then ask me anything about them — by typing or speaking.' }
@@ -23,12 +28,22 @@ export function useChat() {
     abortRef.current = controller
 
     try {
+      const token = getToken()
       const res = await fetch(`${BASE}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ question, session_id: sessionId.current }),
         signal: controller.signal,
       })
+
+      if (res.status === 401) {
+        localStorage.removeItem('auth')
+        window.location.reload()
+        return
+      }
       if (!res.ok) throw new Error(`Server error ${res.status}`)
 
       const reader = res.body.getReader()
@@ -77,13 +92,13 @@ export function useChat() {
   }, [])
 
   const clearChat = useCallback(async () => {
-    // Clear Redis history
-    await fetch(`${BASE}/api/chat/${sessionId.current}`, { method: 'DELETE' }).catch(() => {})
-    // New session
+    const token = getToken()
+    await fetch(`${BASE}/api/chat/${sessionId.current}`, {
+      method: 'DELETE',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    }).catch(() => {})
     sessionId.current = generateSessionId()
-    setMessages([
-      { role: 'agent', content: 'Chat cleared. Ask me anything about your sources.' }
-    ])
+    setMessages([{ role: 'agent', content: 'Chat cleared. Ask me anything about your sources.' }])
   }, [])
 
   const abort = useCallback(() => { abortRef.current?.abort() }, [])
