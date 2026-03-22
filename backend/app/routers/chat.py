@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from backend.app.services.agent_old import run_agent_stream
+from app.services.agent import run_agent_stream
 
 router = APIRouter()
 
