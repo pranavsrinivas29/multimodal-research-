@@ -7,7 +7,7 @@ import { StatsDashboard } from './components/StatsDashboard'
 import { useChat } from './hooks/useChat'
 
 export default function App() {
-  const { messages, streaming, sendMessage, abort } = useChat()
+  const { messages, streaming, sendMessage, abort, clearChat, sessionId } = useChat()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [statsOpen, setStatsOpen] = useState(false)
   const [sources, setSources] = useState([])
@@ -42,9 +42,30 @@ export default function App() {
             fontSize: 10, padding: '2px 8px', borderRadius: 20,
             background: 'rgba(61,214,140,0.12)', color: 'var(--green)',
             fontWeight: 500, letterSpacing: '0.05em',
-          }}>PHASE 4</span>
+          }}>PHASE 5</span>
+          <span style={{
+            fontSize: 10, color: 'var(--text-dim)',
+            fontFamily: 'var(--font-mono)',
+          }}>
+            {sessionId.slice(0, 16)}
+          </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Clear chat */}
+          <button
+            onClick={clearChat}
+            disabled={streaming}
+            style={{
+              fontSize: 12, color: 'var(--text-muted)',
+              background: 'none', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '4px 10px', fontFamily: 'inherit',
+              opacity: streaming ? 0.4 : 1,
+            }}
+          >
+            Clear chat
+          </button>
+
           {/* Stats toggle */}
           <button
             onClick={() => setStatsOpen(o => !o)}
@@ -54,7 +75,6 @@ export default function App() {
               background: statsOpen ? 'rgba(124,106,247,0.1)' : 'none',
               border: `1px solid ${statsOpen ? 'rgba(124,106,247,0.3)' : 'var(--border)'}`,
               borderRadius: 8, padding: '4px 10px', fontFamily: 'inherit',
-              transition: 'all 0.15s ease',
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

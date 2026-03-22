@@ -2,11 +2,16 @@ import { useState, useCallback, useRef } from 'react'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+function generateSessionId() {
+  return 'session_' + Math.random().toString(36).slice(2, 11)
+}
+
 export function useChat() {
   const [messages, setMessages] = useState([
     { role: 'agent', content: 'Hello! Upload some sources on the left, then ask me anything about them — by typing or speaking.' }
   ])
   const [streaming, setStreaming] = useState(false)
+  const sessionId = useRef(generateSessionId())
   const abortRef = useRef(null)
 
   const sendMessage = useCallback(async (question) => {
@@ -21,7 +26,7 @@ export function useChat() {
       const res = await fetch(`${BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, session_id: sessionId.current }),
         signal: controller.signal,
       })
       if (!res.ok) throw new Error(`Server error ${res.status}`)
@@ -71,6 +76,17 @@ export function useChat() {
     }
   }, [])
 
+  const clearChat = useCallback(async () => {
+    // Clear Redis history
+    await fetch(`${BASE}/api/chat/${sessionId.current}`, { method: 'DELETE' }).catch(() => {})
+    // New session
+    sessionId.current = generateSessionId()
+    setMessages([
+      { role: 'agent', content: 'Chat cleared. Ask me anything about your sources.' }
+    ])
+  }, [])
+
   const abort = useCallback(() => { abortRef.current?.abort() }, [])
-  return { messages, streaming, sendMessage, abort }
+
+  return { messages, streaming, sendMessage, abort, clearChat, sessionId: sessionId.current }
 }
