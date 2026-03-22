@@ -17,3 +17,7 @@ langchain-core==0.2.22
 
 # Phase 4
 mlflow==2.13.2
+
+# Phase 5
+redis==5.0.4
+cohere==5.5.0
