@@ -5,7 +5,7 @@ from app.services.store import search_chunks
 from app.services.embedder import embed_single
 from app.services.synthesizer import stream_answer
 from app.services.reranker import rerank
-from app.services.memory import get_history, append_turn
+from app.services.memory import get_history, append_turn, save_turn_to_db
 from app.services.tracker import log_query_run
 from app.services.evaluator import evaluate_faithfulness
 
@@ -41,7 +41,9 @@ async def run_agent_stream(
     latency_ms    = (time.time() - start) * 1000
     prompt_tokens = sum(len(c["text"].split()) for c in chunks) + len(question.split())
 
+    # Save to both Redis (fast) and Postgres (persistent)
     asyncio.create_task(append_turn(session_id, question, answer_text))
+    asyncio.create_task(save_turn_to_db(user_id, question, answer_text))
     asyncio.create_task(_log_and_eval(
         question=question, answer=answer_text, chunks=chunks,
         latency_ms=latency_ms, prompt_tokens=prompt_tokens,

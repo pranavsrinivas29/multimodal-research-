@@ -55,13 +55,17 @@ async def search_chunks(
     top_k: int = 20,
     user_id: str = None,
 ) -> list:
-    """Search chunks — optionally filter by user_id for isolation."""
     client = _qdrant()
 
     query_filter = None
     if user_id:
         query_filter = Filter(
-            must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+            must=[
+                FieldCondition(
+                    key="user_id",
+                    match=MatchValue(value=user_id)
+                )
+            ]
         )
 
     results = await client.search(

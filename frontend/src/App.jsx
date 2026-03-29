@@ -10,7 +10,16 @@ import { useAuth } from './hooks/useAuth.jsx'
 
 export default function App() {
   const { user, logout } = useAuth()
-  const { messages, streaming, sendMessage, abort, clearChat, sessionId } = useChat()
+  const {
+    messages,
+    streaming,
+    historyLoading,
+    sendMessage,
+    abort,
+    clearChat,
+    sessionId,
+  } = useChat(user?.user_id)
+
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [statsOpen, setStatsOpen] = useState(false)
   const [sources, setSources] = useState([])
@@ -20,7 +29,6 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Show auth page if not logged in
   if (!user) return <AuthPage />
 
   return (
@@ -52,20 +60,17 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* User email */}
           <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
             {user.email}
           </span>
-
-          <button onClick={clearChat} disabled={streaming} style={{
+          <button onClick={clearChat} disabled={streaming || historyLoading} style={{
             fontSize: 12, color: 'var(--text-muted)', background: 'none',
             border: '1px solid var(--border)', borderRadius: 8,
             padding: '4px 10px', fontFamily: 'inherit',
-            opacity: streaming ? 0.4 : 1,
+            opacity: streaming || historyLoading ? 0.4 : 1,
           }}>
             Clear chat
           </button>
-
           <button onClick={() => setStatsOpen(o => !o)} style={{
             display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,
             color: statsOpen ? 'var(--accent-bright)' : 'var(--text-muted)',
@@ -80,7 +85,6 @@ export default function App() {
             </svg>
             MLflow
           </button>
-
           <button onClick={logout} style={{
             fontSize: 12, color: 'var(--red)', background: 'none',
             border: '1px solid rgba(242,107,107,0.25)',
@@ -88,13 +92,14 @@ export default function App() {
           }}>
             Sign out
           </button>
-
           <StatusBar />
         </div>
       </header>
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+
+        {/* Sidebar */}
         {sidebarOpen && (
           <aside style={{
             width: 280, borderRight: '1px solid var(--border)',
@@ -115,6 +120,7 @@ export default function App() {
           </aside>
         )}
 
+        {/* Chat */}
         <main style={{
           flex: 1, display: 'flex', flexDirection: 'column',
           overflow: 'hidden', background: 'var(--bg2)',
@@ -125,7 +131,18 @@ export default function App() {
             flex: 1, overflowY: 'auto', padding: '24px 28px',
             display: 'flex', flexDirection: 'column', gap: 12,
           }}>
-            {messages.map((m, i) => (
+
+            {/* History loading indicator */}
+            {historyLoading && (
+              <div style={{
+                textAlign: 'center', fontSize: 12,
+                color: 'var(--text-muted)', padding: '20px 0',
+              }}>
+                Loading your conversation history…
+              </div>
+            )}
+
+            {!historyLoading && messages.map((m, i) => (
               <ChatMessage key={i} {...m} />
             ))}
             <div ref={bottomRef} />
@@ -144,7 +161,7 @@ export default function App() {
                 }}>Stop generating</button>
               </div>
             )}
-            <ChatInput onSubmit={sendMessage} disabled={streaming} />
+            <ChatInput onSubmit={sendMessage} disabled={streaming || historyLoading} />
             <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
               Press Enter to send · Shift+Enter for newline · Click mic to speak
             </div>

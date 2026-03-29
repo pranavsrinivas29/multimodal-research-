@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -11,13 +11,67 @@ function getToken() {
   return stored ? JSON.parse(stored).token : null
 }
 
-export function useChat() {
-  const [messages, setMessages] = useState([
-    { role: 'agent', content: 'Hello! Upload some sources on the left, then ask me anything about them — by typing or speaking.' }
-  ])
+function authHeaders() {
+  const token = getToken()
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+  }
+}
+
+const WELCOME = 'Hello! Upload some sources on the left, then ask me anything about them — by typing or speaking.'
+const WELCOME_BACK = 'Welcome back! Here is your previous conversation.'
+
+export function useChat(userId) {
+  const [messages, setMessages] = useState([])
   const [streaming, setStreaming] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const sessionId = useRef(generateSessionId())
   const abortRef = useRef(null)
+  const loadedForUser = useRef(null) // track which user we already loaded for
+
+  useEffect(() => {
+    // Only load if userId exists and we haven't loaded for this user yet
+    if (!userId || loadedForUser.current === userId) return
+
+    loadedForUser.current = userId
+    sessionId.current = generateSessionId()
+
+    // Immediately clear messages so old user's chat doesn't flash
+    setMessages([])
+    setHistoryLoading(true)
+
+    fetch(`${BASE}/api/auth/history`, { headers: authHeaders() })
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to load history')
+        return r.json()
+      })
+      .then(data => {
+        const msgs = (data.messages || []).map(m => ({
+          role: m.role === 'assistant' ? 'agent' : 'user',
+          content: m.content,
+        }))
+        setMessages(msgs.length > 0
+          ? [{ role: 'agent', content: WELCOME_BACK }, ...msgs]
+          : [{ role: 'agent', content: WELCOME }]
+        )
+      })
+      .catch(() => {
+        setMessages([{ role: 'agent', content: WELCOME }])
+      })
+      .finally(() => setHistoryLoading(false))
+
+  }, [userId])
+
+  // When user logs out (userId becomes null), reset everything
+  useEffect(() => {
+    if (!userId) {
+      loadedForUser.current = null
+      setMessages([])
+      setHistoryLoading(false)
+      sessionId.current = generateSessionId()
+    }
+  }, [userId])
 
   const sendMessage = useCallback(async (question) => {
     setMessages(prev => [...prev, { role: 'user', content: question, isNew: true }])
@@ -28,13 +82,9 @@ export function useChat() {
     abortRef.current = controller
 
     try {
-      const token = getToken()
       const res = await fetch(`${BASE}/api/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders(),
         body: JSON.stringify({ question, session_id: sessionId.current }),
         signal: controller.signal,
       })
@@ -75,8 +125,10 @@ export function useChat() {
       setMessages(prev => {
         const next = [...prev]
         next[next.length - 1] = {
-          role: 'agent', content: `Error: ${err.message}`,
-          isNew: true, error: true,
+          role: 'agent',
+          content: `Error: ${err.message}`,
+          isNew: true,
+          error: true,
         }
         return next
       })
@@ -92,10 +144,11 @@ export function useChat() {
   }, [])
 
   const clearChat = useCallback(async () => {
-    const token = getToken()
     await fetch(`${BASE}/api/chat/${sessionId.current}`, {
-      method: 'DELETE',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      method: 'DELETE', headers: authHeaders(),
+    }).catch(() => {})
+    await fetch(`${BASE}/api/auth/history`, {
+      method: 'DELETE', headers: authHeaders(),
     }).catch(() => {})
     sessionId.current = generateSessionId()
     setMessages([{ role: 'agent', content: 'Chat cleared. Ask me anything about your sources.' }])
@@ -103,5 +156,13 @@ export function useChat() {
 
   const abort = useCallback(() => { abortRef.current?.abort() }, [])
 
-  return { messages, streaming, sendMessage, abort, clearChat, sessionId: sessionId.current }
+  return {
+    messages,
+    streaming,
+    historyLoading,
+    sendMessage,
+    abort,
+    clearChat,
+    sessionId: sessionId.current,
+  }
 }
